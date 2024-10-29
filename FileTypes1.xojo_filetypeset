@@ -7,6 +7,12 @@
 		MacType=JPEG
 		Name=image/jpeg
 		UTI=public.jpeg
+		UTIConformsTo=,public.data
+		Description=
+		MimeType=
+		Imported=True
+		HandlerRank=&h9
+		UTIPhysicalType=public.data
 	#tag EndFileType
 
 	#tag FileType
@@ -17,6 +23,12 @@
 		MacType=PNGf
 		Name=image/png
 		UTI=public.png
+		UTIConformsTo=,public.data
+		Description=
+		MimeType=
+		Imported=True
+		HandlerRank=&h9
+		UTIPhysicalType=public.data
 	#tag EndFileType
 
 #tag EndFileTypeSet

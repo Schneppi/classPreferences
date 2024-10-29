@@ -2,62 +2,127 @@
 Protected Class classPreferences
 	#tag Method, Flags = &h0
 		Sub Constructor(bundleID as String)
-		  Dim prefFile as FolderItem
-		  
-		  prefDB = new SQLiteDatabase
-		  
+		  Dim prefFile As FolderItem
+		  prefDB = New SQLiteDatabase
 		  prefFile = SpecialFolder.ApplicationData.Child(bundleID)
 		  
-		  prefFile.CreateAsFolder
+		  #Pragma BreakOnExceptions False
+		  Try
+		    
+		    prefFile.CreateFolder
+		    
+		  Catch err As IOException
+		    // May happen if folder already exist...
+		  End Try
+		  #Pragma BreakOnExceptions True
 		  
-		  prefFile = SpecialFolder.ApplicationData.Child(bundleID).Child(bundleID + ".preferences")
-		  
-		  prefDB.DatabaseFile = prefFile
-		  
-		  if not prefFile.Exists then
-		    if CreatePrefsFile = False then
-		      MsgBox  "Error creating preferences file"
-		      exit Sub
+		  Try
+		    
+		    prefFile = SpecialFolder.ApplicationData.Child( bundleID ).Child( bundleID + ".preferences" )
+		    
+		    prefDB.DatabaseFile = prefFile
+		    
+		    if not prefFile.Exists then
+		      if CreatePrefsFile = False then
+		        MessageDialog.Show("Error creating Prefs file.")
+		        exit Sub
+		      end if
 		    end if
-		  end if
-		  
-		  if prefDB.Connect = False then
-		    MsgBox "Error connecting to preferences file"
-		  end if
-		  
-		  
+		    
+		    If Not prefDB.IsConnected Then prefDB.Connect
+		    
+		  Catch err As DatabaseException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		    MessageDialog.Show("Error accessing Prefs file.")
+		    
+		  Catch err As RuntimeException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  Catch err As IOException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  End Try
 		End Sub
 	#tag EndMethod
 
 	#tag Method, Flags = &h21
 		Private Function createPrefsFile() As Boolean
-		  if prefDB.CreateDatabaseFile = False then
-		    Return False
-		  else
-		    prefDB.SQLExecute("CREATE TABLE tblPreferences(id integer PRIMARY KEY AUTOINCREMENT,key varchar,value varchar);")
-		    return True
-		  end if
+		  Try
+		    
+		    prefDB.CreateDatabase
+		    
+		    prefDB.ExecuteSQL("CREATE TABLE tblPreferences(id integer PRIMARY KEY AUTOINCREMENT,key varchar,value varchar);")
+		    
+		    Return True
+		    
+		  Catch err As DatabaseException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Fehler in Funktion: " + CurrentMethodName + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  Catch err As RuntimeException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Fehler in Funktion: " + CurrentMethodName + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  End Try
+		  
+		  Return False
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Sub deleteValue(key as String)
-		  Dim rs as RecordSet
-		  
-		  //Check the database is connected
-		  if prefDB.Connect = True then
-		    //Get any records where key already exists
-		    rs = prefDB.SQLSelect("SELECT * FROM tblPreferences WHERE key='" + Uppercase(key) + "'")
-		    if prefDB.Error then
-		      MsgBox prefDB.ErrorMessage
-		    end if
+		  Try
 		    
-		    if rs.RecordCount = 0 then
-		      Raise new KeyNotFoundException
-		    else
-		      prefDB.SQLExecute("DELETE FROM tblPreferences WHERE key='" + Uppercase(key) + "'")
-		    end if
-		  end if
+		    Dim rs As RowSet
+		    
+		    // Check the database is connected
+		    If Not prefDB.IsConnected Then prefDB.Connect
+		    
+		    // Get any records where key already exists
+		    rs = prefDB.SelectSQL( "SELECT * FROM tblPreferences WHERE key=?", key.Uppercase)
+		    
+		    If rs.RowCount = 0 Then
+		      Raise New KeyNotFoundException
+		    Else
+		      prefDB.ExecuteSQL( "DELETE FROM tblPreferences WHERE key=?", _
+		      key.Uppercase)
+		    End If
+		    
+		  Catch err As DatabaseException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Fehler in Funktion: " + CurrentMethodName + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		    If DebugBuild Then
+		      MessageDialog.Show(err.Message)
+		    End If
+		    
+		  Catch err As RuntimeException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Fehler in Funktion: " + CurrentMethodName + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  End Try
 		End Sub
 	#tag EndMethod
 
@@ -91,7 +156,7 @@ Protected Class classPreferences
 		  dim tmpDef as Variant
 		  
 		  if default <> Nil then
-		    tmpDef = EncodeBase64(default.GetData(Picture.FormatPNG))
+		    tmpDef = EncodeBase64(default.ToData(Picture.Formats.PNG))
 		  end  if
 		  
 		  return Picture.FromData(DecodeBase64(getValue(key,tmpDef)))
@@ -112,50 +177,83 @@ Protected Class classPreferences
 
 	#tag Method, Flags = &h21
 		Private Function getValue(key as String, Optional default as Variant) As String
-		  Dim rs as RecordSet
-		  
-		  //Check the database is connected
-		  if prefDB.Connect = True then
-		    //Get any records where key already exists
-		    rs = prefDB.SQLSelect("SELECT * FROM tblPreferences WHERE key='" + Uppercase(key) + "'")
-		    if prefDB.Error then
-		      MsgBox prefDB.ErrorMessage
-		    end if
+		  Try
 		    
-		    if rs.RecordCount = 0 then
-		      if default <> nil then
-		        return default
+		    Dim rs As RowSet
+		    
+		    // Check the database is connected
+		    If Not prefDB.IsConnected Then prefDB.Connect
+		    
+		    // Get any records where key already exists
+		    rs = prefDB.SelectSQL( "SELECT * FROM tblPreferences WHERE key=?", _
+		    key.Uppercase)
+		    
+		    If rs.RowCount = 0 Then
+		      If default <> Nil Then
+		        Return default
 		      Else
-		        Raise new KeyNotFoundException
-		      end if
-		    else
-		      return rs.Field("value").StringValue
-		    end if
+		        Raise New KeyNotFoundException
+		      End If
+		    Else
+		      Return rs.Column("value").StringValue
+		    End If
 		    
-		  end if
-		  
+		  Catch err As DatabaseException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		    If DebugBuild Then
+		      MessageDialog.Show(err.Message)
+		    End If
+		    
+		  Catch err As RuntimeException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  End Try
 		End Function
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
 		Function hasKey(key as String) As Boolean
-		  Dim rs as RecordSet
-		  
-		  //Check the database is connected
-		  if prefDB.Connect = True then
-		    //Get any records where key already exists
-		    rs = prefDB.SQLSelect("SELECT * FROM tblPreferences WHERE key='" + Uppercase(key) + "'")
-		    if prefDB.Error then
-		      MsgBox prefDB.ErrorMessage
-		    end if
+		  Try
 		    
-		    if rs.RecordCount = 0 then
-		      return False
-		    else
-		      return True
-		    end if
+		    Dim rs As RowSet
 		    
-		  end if
+		    // Check the database is connected
+		    If Not prefDB.IsConnected Then prefDB.Connect
+		    
+		    // Get any records where key already exists
+		    rs = prefDB.SelectSQL( "SELECT * FROM tblPreferences WHERE key=?", _
+		    key.Uppercase)
+		    
+		    If rs.RowCount = 0 Then
+		      Return False
+		    Else
+		      Return True
+		    End If
+		    
+		  Catch err As DatabaseException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		    If DebugBuild Then
+		      MessageDialog.Show(err.Message)
+		    End If
+		    
+		  Catch err As RuntimeException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  End Try
 		End Function
 	#tag EndMethod
 
@@ -187,8 +285,8 @@ Protected Class classPreferences
 	#tag EndMethod
 
 	#tag Method, Flags = &h0
-		Sub setPictureValue(key as string,value as Picture)
-		  SetValue(key,EncodeBase64(value.GetData(Picture.FormatPNG)))
+		Sub setPictureValue(key as string, value as Picture)
+		  SetValue(key,EncodeBase64(value.ToData(Picture.Formats.PNG)))
 		End Sub
 	#tag EndMethod
 
@@ -208,38 +306,49 @@ Protected Class classPreferences
 
 	#tag Method, Flags = &h21
 		Private Sub setValue(key as string, value as variant)
-		  Dim ps As PreparedSQLStatement
-		  Dim rs As RecordSet
-		  
-		  //Check the database is connected
-		  If prefDB.Connect =True Then
-		    //Get any records where key already exists
-		    rs = prefDB.SQLSelect("SELECT * FROM tblPreferences WHERE key='" + Uppercase(key) + "'")
-		    If prefDB.Error Then
-		      MsgBox prefDB.ErrorMessage
-		    End If
+		  Try
 		    
-		    //If the key does not already exist
-		    If rs.RecordCount = 0 Then
-		      ps = prefDB.Prepare("INSERT INTO tblPreferences (key,value) VALUES (?,?)")
-		      ps.Bind(0, Uppercase(key), SQLitePreparedStatement.SQLITE_TEXT)
-		      ps.Bind(1, Str(value), SQLitePreparedStatement.SQLITE_TEXT)
-		      ps.SQLExecute
-		      If prefDB.Error Then
-		        MsgBox prefDB.ErrorMessage
-		      End If
+		    Dim rs As RowSet
+		    
+		    // Check the database is connected
+		    If Not prefDB.IsConnected Then prefDB.Connect
+		    
+		    // Get any records where key already exists
+		    rs = prefDB.SelectSQL( "SELECT * FROM tblPreferences WHERE key=?", _
+		    key.Uppercase)
+		    
+		    // If the key does not already exist
+		    If rs.RowCount = 0 Then
+		      prefDB.ExecuteSQL("INSERT INTO tblPreferences (key,value) VALUES (?,?)", _
+		      key.Uppercase, _
+		      Str(value))
+		      
 		    Else
-		      //Otherwise if it does exists update the value with the new value
-		      ps = prefDB.Prepare("UPDATE tblPreferences SET value=? WHERE key=?")
-		      ps.Bind(0, Str(value), SQLitePreparedStatement.SQLITE_TEXT)
-		      ps.Bind(1, Uppercase(key), SQLitePreparedStatement.SQLITE_TEXT)
-		      ps.SQLExecute
+		      // Otherwise if it does exists update the value with the new value
+		      prefDB.ExecuteSQL( "UPDATE tblPreferences SET value=? WHERE key=?", _
+		      Str(value), _
+		      key.Uppercase)
 		    End If
 		    
 		    RaiseEvent PreferencesChanged
 		    
-		  End If
-		  
+		  Catch err As DatabaseException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		    If DebugBuild Then
+		      MessageDialog.Show(err.Message)
+		    End If
+		    
+		  Catch err As RuntimeException
+		    
+		    System.Log(System.LogLevelError, "Error Message: " + err.Message + EndOfLine + _
+		    "Error Number: " + err.ErrorNumber.ToString + EndOfLine + _
+		    "Stack: " + String.FromArray(err.Stack, EndOfLine))
+		    
+		  End Try
 		End Sub
 	#tag EndMethod
 
@@ -261,6 +370,7 @@ Protected Class classPreferences
 			Group="ID"
 			InitialValue="-2147483648"
 			Type="Integer"
+			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Left"
@@ -268,18 +378,23 @@ Protected Class classPreferences
 			Group="Position"
 			InitialValue="0"
 			Type="Integer"
+			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Name"
 			Visible=true
 			Group="ID"
+			InitialValue=""
 			Type="String"
+			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Super"
 			Visible=true
 			Group="ID"
+			InitialValue=""
 			Type="String"
+			EditorType=""
 		#tag EndViewProperty
 		#tag ViewProperty
 			Name="Top"
@@ -287,6 +402,7 @@ Protected Class classPreferences
 			Group="Position"
 			InitialValue="0"
 			Type="Integer"
+			EditorType=""
 		#tag EndViewProperty
 	#tag EndViewBehavior
 End Class
